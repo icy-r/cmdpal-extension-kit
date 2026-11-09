@@ -1,0 +1,18 @@
+# Build output (kit and scaffolded extensions)
+bin/
+obj/
+out/
+tools/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Packages and signing material
+*.msix
+*.vsix
+*.pfx
+*.cer
+*.log

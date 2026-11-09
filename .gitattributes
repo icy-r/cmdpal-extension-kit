@@ -1,0 +1,4 @@
+# Store text with LF so syncs on Windows and Linux produce the same bytes (no line-ending diffs).
+* text=auto eol=lf
+*.png binary
+*.ps1 text eol=crlf

@@ -1,0 +1,56 @@
+name: Sync upstream docs
+
+# Weekly: pull the latest Command Palette docs, SDK source, samples and AI skills from
+# microsoft/PowerToys and MicrosoftDocs/windows-dev-docs. Commits only when upstream content changed
+# and the template still builds against the synced package versions.
+on:
+  schedule:
+    - cron: "17 5 * * 1" # Mondays 05:17 UTC
+  workflow_dispatch:
+    inputs:
+      powertoys_ref:
+        description: "PowerToys ref: latest-release, main, or a tag such as v0.102.3101"
+        default: latest-release
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-docs
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Sync docs
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          POWERTOYS_REF: ${{ inputs.powertoys_ref || 'latest-release' }}
+        run: ./scripts/sync-docs.ps1 -PowerToysRef $env:POWERTOYS_REF
+
+      - name: Check the template still builds
+        shell: pwsh
+        run: ./scripts/test-template.ps1
+
+      - name: Commit if upstream changed
+        shell: pwsh
+        run: |
+          git add -A
+          # SOURCES.md records commit ids, which change on every upstream commit; ignore it alone.
+          $changed = @(git diff --cached --name-only | Where-Object { $_ -ne "docs/upstream/SOURCES.md" })
+          if ($changed.Count -eq 0) { Write-Host "No upstream changes."; exit 0 }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: sync upstream Command Palette docs" -m "$($changed.Count) files changed. See docs/upstream/SOURCES.md."
+          git push
+          "## Synced $($changed.Count) files" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          $changed | ForEach-Object { "- ``$_``" } | Out-File $env:GITHUB_STEP_SUMMARY -Append
